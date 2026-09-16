@@ -17,6 +17,19 @@
   <name>keycloak-active-users-exporter</name>
   <description>Prometheus exporter for filtered Keycloak user metrics</description>
 
+  <distributionManagement>
+    <repository>
+      <id>mks-nexus-public-releases</id>
+      <name>Mekom Solutions Nexus repo for releases</name>
+      <url>https://nexus.mekomsolutions.net/repository/maven-releases</url>
+    </repository>
+    <snapshotRepository>
+      <id>mks-nexus-public-snapshots</id>
+      <name>Mekom Solutions Nexus repo for snapshots</name>
+      <url>https://nexus.mekomsolutions.net/repository/maven-snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
+
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -208,4 +221,5 @@
 
     </plugins>
   </build>
+
 </project>
