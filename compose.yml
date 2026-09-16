@@ -1,0 +1,25 @@
+services:
+  keycloak-active-users-exporter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: keycloak-active-users-exporter:1.0.0
+    container_name: keycloak-active-users-exporter
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      KC_REALM: "ozone"
+      KC_CLIENT_ID: "active-users-exporter"
+      KC_CLIENT_SECRET: bpSKCXQD3TukOpPGr076brpnkuCR9KPZ
+      TRACKED_CLIENTS: "openelis-1,openelis-2"
+      EXCLUDED_CLIENTS: >-
+        account,account-console,security-admin-console,admin-cli,
+        broker,realm-management,keycloak-active-users-exporter
+      EXCLUDED_USERNAMES: "test,admin"
+      POLL_SECONDS: "60"
+      HTTP_PORT: "9108"
+      TIMEOUT_SECONDS: "15"
+      LOG_LEVEL: "INFO"
+    ports:
+      - 9108:9108
