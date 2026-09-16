@@ -18,18 +18,17 @@ public record ExporterConfig(
         Set<String> excludedUsernames,
         long pollSeconds,
         int httpPort,
-        long timeoutSeconds
-        ) {
+        long timeoutSeconds) {
 
-    private static final String DEFAULT_EXCLUDED_CLIENTS = String.join(",",
+    private static final String DEFAULT_EXCLUDED_CLIENTS = String.join(
+            ",",
             "account",
             "account-console",
             "security-admin-console",
             "admin-cli",
             "broker",
             "realm-management",
-            "keycloak-active-users-exporter"
-    );
+            "keycloak-active-users-exporter");
 
     public ExporterConfig {
         kcBase = requireNonBlank(kcBase, "KC_BASE").replaceAll("/+$", "");
@@ -42,9 +41,7 @@ public record ExporterConfig(
         excludedUsernames = normalizeUsernames(excludedUsernames);
 
         if (!includedClients.isEmpty() && !excludedClients.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Set either INCLUDED_CLIENTS or EXCLUDED_CLIENTS, not both"
-            );
+            throw new IllegalArgumentException("Set either INCLUDED_CLIENTS or EXCLUDED_CLIENTS, not both");
         }
 
         if (pollSeconds <= 0) {
@@ -63,25 +60,16 @@ public record ExporterConfig(
     public static ExporterConfig fromEnvironment() {
         Map<String, String> environment = System.getenv();
 
-        Set<String> includedClients = parseSet(
-                environment.get("INCLUDED_CLIENTS"),
-                false
-        );
+        Set<String> includedClients = parseSet(environment.get("INCLUDED_CLIENTS"), false);
 
         Set<String> excludedClients;
 
         if (!includedClients.isEmpty()) {
             excludedClients = Set.of();
         } else if (environment.containsKey("EXCLUDED_CLIENTS")) {
-            excludedClients = parseSet(
-                    environment.get("EXCLUDED_CLIENTS"),
-                    false
-            );
+            excludedClients = parseSet(environment.get("EXCLUDED_CLIENTS"), false);
         } else {
-            excludedClients = parseSet(
-                    DEFAULT_EXCLUDED_CLIENTS,
-                    false
-            );
+            excludedClients = parseSet(DEFAULT_EXCLUDED_CLIENTS, false);
         }
 
         return new ExporterConfig(
@@ -94,8 +82,7 @@ public record ExporterConfig(
                 parseSet(environment.get("EXCLUDED_USERNAMES"), true),
                 parseLong("POLL_SECONDS", 60),
                 parseInt("HTTP_PORT", 9108),
-                parseLong("TIMEOUT_SECONDS", 15)
-        );
+                parseLong("TIMEOUT_SECONDS", 15));
     }
 
     public boolean isIncludedClient(String clientId) {
@@ -111,8 +98,7 @@ public record ExporterConfig(
     }
 
     public boolean isIncludedUsername(String username) {
-        return username != null
-                && !excludedUsernames.contains(username.toLowerCase(Locale.ROOT));
+        return username != null && !excludedUsernames.contains(username.toLowerCase(Locale.ROOT));
     }
 
     private static Set<String> immutableCopy(Set<String> values) {
@@ -133,9 +119,7 @@ public record ExporterConfig(
         Arrays.stream(value.split(","))
                 .map(String::trim)
                 .filter(item -> !item.isEmpty())
-                .map(item -> caseInsensitive
-                ? item.toLowerCase(Locale.ROOT)
-                : item)
+                .map(item -> caseInsensitive ? item.toLowerCase(Locale.ROOT) : item)
                 .forEach(values::add);
 
         return values;
@@ -151,10 +135,7 @@ public record ExporterConfig(
         try {
             return Integer.parseInt(value.trim());
         } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException(
-                    variable + " must be an integer",
-                    exception
-            );
+            throw new IllegalArgumentException(variable + " must be an integer", exception);
         }
     }
 
@@ -168,10 +149,7 @@ public record ExporterConfig(
         try {
             return Long.parseLong(value.trim());
         } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException(
-                    variable + " must be an integer",
-                    exception
-            );
+            throw new IllegalArgumentException(variable + " must be an integer", exception);
         }
     }
 

@@ -1,5 +1,7 @@
 package com.ozonehis.metrics;
 
+import io.prometheus.metrics.core.metrics.Gauge;
+import io.prometheus.metrics.exporter.httpserver.HTTPServer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,7 +17,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
@@ -23,12 +24,8 @@ import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.representations.idm.UserSessionRepresentation;
 
-import io.prometheus.metrics.core.metrics.Gauge;
-import io.prometheus.metrics.exporter.httpserver.HTTPServer;
-
 public final class ActiveUsersExporter {
-    private static final Logger LOGGER =
-            Logger.getLogger(ActiveUsersExporter.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ActiveUsersExporter.class.getName());
 
     private static final String METRIC_PREFIX = "keycloak";
     private static final int PAGE_SIZE = 100;
@@ -111,39 +108,29 @@ public final class ActiveUsersExporter {
                 .clientSecret(config.kcClientSecret())
                 .build();
 
-        ActiveUsersExporter exporter =
-                new ActiveUsersExporter(config, keycloak);
+        ActiveUsersExporter exporter = new ActiveUsersExporter(config, keycloak);
 
-        HTTPServer httpServer = HTTPServer.builder()
-                .port(config.httpPort())
-                .buildAndStart();
+        HTTPServer httpServer = HTTPServer.builder().port(config.httpPort()).buildAndStart();
 
-        LOGGER.info(() -> "Prometheus metrics available at http://0.0.0.0:"
-                + httpServer.getPort() + "/metrics");
+        LOGGER.info(() -> "Prometheus metrics available at http://0.0.0.0:" + httpServer.getPort() + "/metrics");
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            LOGGER.info("Stopping Keycloak active-users exporter");
-            exporter.close();
-        }, "keycloak-metrics-shutdown"));
+        Runtime.getRuntime()
+                .addShutdownHook(new Thread(
+                        () -> {
+                            LOGGER.info("Stopping Keycloak active-users exporter");
+                            exporter.close();
+                        },
+                        "keycloak-metrics-shutdown"));
 
         exporter.poll();
 
-        ScheduledExecutorService scheduler =
-                Executors.newSingleThreadScheduledExecutor(runnable -> {
-                    Thread thread = new Thread(
-                            runnable,
-                            "keycloak-metrics-poller"
-                    );
-                    thread.setDaemon(false);
-                    return thread;
-                });
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "keycloak-metrics-poller");
+            thread.setDaemon(false);
+            return thread;
+        });
 
-        scheduler.scheduleWithFixedDelay(
-                exporter::poll,
-                config.pollSeconds(),
-                config.pollSeconds(),
-                TimeUnit.SECONDS
-        );
+        scheduler.scheduleWithFixedDelay(exporter::poll, config.pollSeconds(), config.pollSeconds(), TimeUnit.SECONDS);
 
         Thread.currentThread().join();
     }
@@ -152,15 +139,12 @@ public final class ActiveUsersExporter {
         Instant startedAt = Instant.now();
 
         try {
-            List<Map<String, String>> clientSessionStats = keycloak
-                    .realm(config.kcRealm())
-                    .getClientSessionStats();
+            List<Map<String, String>> clientSessionStats =
+                    keycloak.realm(config.kcRealm()).getClientSessionStats();
 
-            LOGGER.fine(() -> "Keycloak client-session-stats response: "
-                    + clientSessionStats);
+            LOGGER.fine(() -> "Keycloak client-session-stats response: " + clientSessionStats);
 
-            ClientSessionMetrics sessionMetrics =
-                    toClientSessionMetrics(clientSessionStats, config);
+            ClientSessionMetrics sessionMetrics = toClientSessionMetrics(clientSessionStats, config);
 
             LOGGER.fine(() -> "Included client session metrics: "
                     + sessionMetrics.sessionsByClient()
@@ -183,68 +167,48 @@ public final class ActiveUsersExporter {
             LOGGER.log(
                     Level.WARNING,
                     "Keycloak metric polling failed; previously collected metric values remain exposed",
-                    exception
-            );
+                    exception);
         } finally {
-            double elapsedSeconds = Duration.between(startedAt, Instant.now())
-                    .toNanos() / 1_000_000_000.0;
+            double elapsedSeconds = Duration.between(startedAt, Instant.now()).toNanos() / 1_000_000_000.0;
 
-            pollDurationSeconds
-                    .labelValues(config.kcRealm())
-                    .set(elapsedSeconds);
+            pollDurationSeconds.labelValues(config.kcRealm()).set(elapsedSeconds);
         }
     }
 
     private void updateClientSessionMetrics(ClientSessionMetrics metrics) {
-        ClientSessionUpdate update = updateClientSessionValues(
-                previouslyReportedClientIds,
-                metrics
-        );
+        ClientSessionUpdate update = updateClientSessionValues(previouslyReportedClientIds, metrics);
 
         for (Map.Entry<String, Long> entry : update.clientSessionValues().entrySet()) {
-            activeClientSessions
-                    .labelValues(config.kcRealm(), entry.getKey())
-                    .set(entry.getValue());
+            activeClientSessions.labelValues(config.kcRealm(), entry.getKey()).set(entry.getValue());
         }
 
-        activeRealmSessions
-                .labelValues(config.kcRealm())
-                .set(update.realmSessionTotal());
+        activeRealmSessions.labelValues(config.kcRealm()).set(update.realmSessionTotal());
     }
 
-    private void updateActiveRealmUsersMetric(
-            Map<String, Long> activeSessionsByClient
-    ) {
+    private void updateActiveRealmUsersMetric(Map<String, Long> activeSessionsByClient) {
         Set<String> activeUserIds = new HashSet<>();
 
         for (String clientId : activeSessionsByClient.keySet()) {
             ClientRepresentation client = findClientByClientId(clientId);
 
             if (client == null || client.getId() == null || client.getId().isBlank()) {
-                LOGGER.warning(() -> "Unable to resolve Keycloak internal client ID "
-                        + "for client_id '" + clientId + "'");
+                LOGGER.warning(
+                        () -> "Unable to resolve Keycloak internal client ID " + "for client_id '" + clientId + "'");
                 continue;
             }
 
-            activeUserIds.addAll(collectDistinctUserIds(
-                    List.of(getActiveSessionsForClient(client.getId()))
-            ));
+            activeUserIds.addAll(collectDistinctUserIds(List.of(getActiveSessionsForClient(client.getId()))));
         }
 
-        long distinctIncludedUsers = activeUserIds.stream()
-                .filter(this::isIncludedActiveUser)
-                .count();
+        long distinctIncludedUsers =
+                activeUserIds.stream().filter(this::isIncludedActiveUser).count();
 
-        activeRealmUsers
-                .labelValues(config.kcRealm())
-                .set(distinctIncludedUsers);
+        activeRealmUsers.labelValues(config.kcRealm()).set(distinctIncludedUsers);
     }
 
     private ClientRepresentation findClientByClientId(String clientId) {
-        List<ClientRepresentation> clients = keycloak
-                .realm(config.kcRealm())
-                .clients()
-                .findByClientId(clientId);
+        List<ClientRepresentation> clients =
+                keycloak.realm(config.kcRealm()).clients().findByClientId(clientId);
 
         if (clients == null || clients.isEmpty()) {
             return null;
@@ -253,15 +217,12 @@ public final class ActiveUsersExporter {
         return clients.getFirst();
     }
 
-    private List<UserSessionRepresentation> getActiveSessionsForClient(
-            String internalClientId
-    ) {
+    private List<UserSessionRepresentation> getActiveSessionsForClient(String internalClientId) {
         List<UserSessionRepresentation> allSessions = new ArrayList<>();
         int firstResult = 0;
 
         while (true) {
-            List<UserSessionRepresentation> sessions = keycloak
-                    .realm(config.kcRealm())
+            List<UserSessionRepresentation> sessions = keycloak.realm(config.kcRealm())
                     .clients()
                     .get(internalClientId)
                     .getUserSessions(firstResult, PAGE_SIZE);
@@ -281,11 +242,8 @@ public final class ActiveUsersExporter {
     }
 
     private boolean isIncludedActiveUser(String userId) {
-        UserRepresentation user = keycloak
-                .realm(config.kcRealm())
-                .users()
-                .get(userId)
-                .toRepresentation();
+        UserRepresentation user =
+                keycloak.realm(config.kcRealm()).users().get(userId).toRepresentation();
 
         return isIncludedUser(user);
     }
@@ -295,10 +253,8 @@ public final class ActiveUsersExporter {
         int firstResult = 0;
 
         while (true) {
-            List<UserRepresentation> users = keycloak
-                    .realm(config.kcRealm())
-                    .users()
-                    .list(firstResult, PAGE_SIZE);
+            List<UserRepresentation> users =
+                    keycloak.realm(config.kcRealm()).users().list(firstResult, PAGE_SIZE);
 
             if (users == null || users.isEmpty()) {
                 break;
@@ -317,9 +273,7 @@ public final class ActiveUsersExporter {
             firstResult += PAGE_SIZE;
         }
 
-        enabledUsers
-                .labelValues(config.kcRealm())
-                .set(enabledUserCount);
+        enabledUsers.labelValues(config.kcRealm()).set(enabledUserCount);
     }
 
     private boolean isIncludedUser(UserRepresentation user) {
@@ -329,8 +283,7 @@ public final class ActiveUsersExporter {
 
         String serviceAccountClientId = user.getServiceAccountClientId();
 
-        if (serviceAccountClientId != null
-                && !serviceAccountClientId.isBlank()) {
+        if (serviceAccountClientId != null && !serviceAccountClientId.isBlank()) {
             return false;
         }
 
@@ -338,9 +291,7 @@ public final class ActiveUsersExporter {
     }
 
     static ClientSessionMetrics toClientSessionMetrics(
-            List<Map<String, String>> clientSessionStats,
-            ExporterConfig config
-    ) {
+            List<Map<String, String>> clientSessionStats, ExporterConfig config) {
         Objects.requireNonNull(config, "config");
 
         Map<String, Long> sessionsByClient = new LinkedHashMap<>();
@@ -358,8 +309,8 @@ public final class ActiveUsersExporter {
             String clientId = clientStat.get("clientId");
 
             if (clientId == null || clientId.isBlank()) {
-                LOGGER.warning(() -> "Ignoring Keycloak client session statistic "
-                        + "without a clientId: " + clientStat);
+                LOGGER.warning(
+                        () -> "Ignoring Keycloak client session statistic " + "without a clientId: " + clientStat);
                 continue;
             }
 
@@ -368,31 +319,21 @@ public final class ActiveUsersExporter {
             }
 
             long activeSessions = parseNonNegativeLong(
-                    clientStat.get("active"),
-                    "active session count for client '" + clientId + "'"
-            );
+                    clientStat.get("active"), "active session count for client '" + clientId + "'");
 
             sessionsByClient.put(clientId, activeSessions);
             realmSessionTotal += activeSessions;
         }
 
-        return new ClientSessionMetrics(
-                Map.copyOf(sessionsByClient),
-                realmSessionTotal
-        );
+        return new ClientSessionMetrics(Map.copyOf(sessionsByClient), realmSessionTotal);
     }
 
     static ClientSessionUpdate updateClientSessionValues(
-            Set<String> previouslyReportedClientIds,
-            ClientSessionMetrics currentMetrics
-    ) {
-        Objects.requireNonNull(previouslyReportedClientIds,
-                "previouslyReportedClientIds");
+            Set<String> previouslyReportedClientIds, ClientSessionMetrics currentMetrics) {
+        Objects.requireNonNull(previouslyReportedClientIds, "previouslyReportedClientIds");
         Objects.requireNonNull(currentMetrics, "currentMetrics");
 
-        Map<String, Long> valuesToPublish = new LinkedHashMap<>(
-                currentMetrics.sessionsByClient()
-        );
+        Map<String, Long> valuesToPublish = new LinkedHashMap<>(currentMetrics.sessionsByClient());
 
         for (String previousClientId : previouslyReportedClientIds) {
             if (!currentMetrics.sessionsByClient().containsKey(previousClientId)) {
@@ -403,15 +344,10 @@ public final class ActiveUsersExporter {
         previouslyReportedClientIds.clear();
         previouslyReportedClientIds.addAll(currentMetrics.sessionsByClient().keySet());
 
-        return new ClientSessionUpdate(
-                Map.copyOf(valuesToPublish),
-                currentMetrics.realmSessionTotal()
-        );
+        return new ClientSessionUpdate(Map.copyOf(valuesToPublish), currentMetrics.realmSessionTotal());
     }
 
-    static Set<String> collectDistinctUserIds(
-            Collection<List<UserSessionRepresentation>> sessionsByClient
-    ) {
+    static Set<String> collectDistinctUserIds(Collection<List<UserSessionRepresentation>> sessionsByClient) {
         Set<String> userIds = new HashSet<>();
 
         if (sessionsByClient == null || sessionsByClient.isEmpty()) {
@@ -439,10 +375,7 @@ public final class ActiveUsersExporter {
         return userIds;
     }
 
-    private static long parseNonNegativeLong(
-            String value,
-            String description
-    ) {
+    private static long parseNonNegativeLong(String value, String description) {
         if (value == null || value.isBlank()) {
             return 0;
         }
@@ -450,8 +383,7 @@ public final class ActiveUsersExporter {
         try {
             return Math.max(Long.parseLong(value), 0);
         } catch (NumberFormatException exception) {
-            LOGGER.warning(() -> "Unable to parse " + description
-                    + " from Keycloak response: '" + value + "'");
+            LOGGER.warning(() -> "Unable to parse " + description + " from Keycloak response: '" + value + "'");
             return 0;
         }
     }
@@ -460,23 +392,11 @@ public final class ActiveUsersExporter {
         try {
             keycloak.close();
         } catch (Exception exception) {
-            LOGGER.log(
-                    Level.FINE,
-                    "Failed to close Keycloak Admin Client",
-                    exception
-            );
+            LOGGER.log(Level.FINE, "Failed to close Keycloak Admin Client", exception);
         }
     }
 
-    record ClientSessionMetrics(
-            Map<String, Long> sessionsByClient,
-            long realmSessionTotal
-    ) {
-    }
+    record ClientSessionMetrics(Map<String, Long> sessionsByClient, long realmSessionTotal) {}
 
-    record ClientSessionUpdate(
-            Map<String, Long> clientSessionValues,
-            long realmSessionTotal
-    ) {
-    }
+    record ClientSessionUpdate(Map<String, Long> clientSessionValues, long realmSessionTotal) {}
 }

@@ -1,12 +1,12 @@
 package com.ozonehis.metrics;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.keycloak.representations.idm.UserSessionRepresentation;
 
@@ -18,45 +18,33 @@ class ActiveUsersExporterTest {
 
     @Test
     void exportsSessionsForEveryIncludedClient() {
-        ExporterConfig config = config(
-                Set.of("openmrs", "patient-portal"),
-                Set.of()
-        );
+        ExporterConfig config = config(Set.of("openmrs", "patient-portal"), Set.of());
 
         List<Map<String, String>> response = List.of(
                 clientSessionStat("openmrs", "7"),
                 clientSessionStat("patient-portal", "14"),
-                clientSessionStat("account", "3")
-        );
+                clientSessionStat("account", "3"));
 
-        ActiveUsersExporter.ClientSessionMetrics metrics =
-                ActiveUsersExporter.toClientSessionMetrics(response, config);
+        ActiveUsersExporter.ClientSessionMetrics metrics = ActiveUsersExporter.toClientSessionMetrics(response, config);
 
         assertEquals(
                 Map.of(
                         "openmrs", 7L,
-                        "patient-portal", 14L
-                ),
-                metrics.sessionsByClient()
-        );
+                        "patient-portal", 14L),
+                metrics.sessionsByClient());
         assertEquals(21L, metrics.realmSessionTotal());
     }
 
     @Test
     void excludedClientIsNotExportedOrIncludedInRealmTotal() {
-        ExporterConfig config = config(
-                Set.of(),
-                Set.of("account", "admin-cli")
-        );
+        ExporterConfig config = config(Set.of(), Set.of("account", "admin-cli"));
 
         List<Map<String, String>> response = List.of(
                 clientSessionStat("openmrs", "7"),
                 clientSessionStat("account", "3"),
-                clientSessionStat("admin-cli", "2")
-        );
+                clientSessionStat("admin-cli", "2"));
 
-        ActiveUsersExporter.ClientSessionMetrics metrics =
-                ActiveUsersExporter.toClientSessionMetrics(response, config);
+        ActiveUsersExporter.ClientSessionMetrics metrics = ActiveUsersExporter.toClientSessionMetrics(response, config);
 
         assertEquals(Map.of("openmrs", 7L), metrics.sessionsByClient());
         assertEquals(7L, metrics.realmSessionTotal());
@@ -65,10 +53,7 @@ class ActiveUsersExporterTest {
     @Test
     void emptySuccessfulResponseHasZeroRealmTotalAndNoClientMetrics() {
         ActiveUsersExporter.ClientSessionMetrics metrics =
-                ActiveUsersExporter.toClientSessionMetrics(
-                        List.of(),
-                        config(Set.of(), Set.of())
-                );
+                ActiveUsersExporter.toClientSessionMetrics(List.of(), config(Set.of(), Set.of()));
 
         assertTrue(metrics.sessionsByClient().isEmpty());
         assertEquals(0L, metrics.realmSessionTotal());
@@ -77,10 +62,7 @@ class ActiveUsersExporterTest {
     @Test
     void nullResponseHasZeroRealmTotalAndNoClientMetrics() {
         ActiveUsersExporter.ClientSessionMetrics metrics =
-                ActiveUsersExporter.toClientSessionMetrics(
-                        null,
-                        config(Set.of(), Set.of())
-                );
+                ActiveUsersExporter.toClientSessionMetrics(null, config(Set.of(), Set.of()));
 
         assertTrue(metrics.sessionsByClient().isEmpty());
         assertEquals(0L, metrics.realmSessionTotal());
@@ -90,13 +72,10 @@ class ActiveUsersExporterTest {
     void parsesKeycloakClientSessionStatsResponseShape() {
         ExporterConfig config = config(Set.of(), Set.of());
 
-        List<Map<String, String>> response = List.of(
-                clientSessionStat("openmrs", "7"),
-                clientSessionStat("patient-portal", "14")
-        );
+        List<Map<String, String>> response =
+                List.of(clientSessionStat("openmrs", "7"), clientSessionStat("patient-portal", "14"));
 
-        ActiveUsersExporter.ClientSessionMetrics metrics =
-                ActiveUsersExporter.toClientSessionMetrics(response, config);
+        ActiveUsersExporter.ClientSessionMetrics metrics = ActiveUsersExporter.toClientSessionMetrics(response, config);
 
         assertEquals(7L, metrics.sessionsByClient().get("openmrs"));
         assertEquals(14L, metrics.sessionsByClient().get("patient-portal"));
@@ -108,12 +87,9 @@ class ActiveUsersExporterTest {
         ExporterConfig config = config(Set.of(), Set.of());
 
         List<Map<String, String>> response = List.of(
-                Map.of("active", "7", "offline", "0", "id", "internal-missing"),
-                clientSessionStat("openmrs", "4")
-        );
+                Map.of("active", "7", "offline", "0", "id", "internal-missing"), clientSessionStat("openmrs", "4"));
 
-        ActiveUsersExporter.ClientSessionMetrics metrics =
-                ActiveUsersExporter.toClientSessionMetrics(response, config);
+        ActiveUsersExporter.ClientSessionMetrics metrics = ActiveUsersExporter.toClientSessionMetrics(response, config);
 
         assertEquals(Map.of("openmrs", 4L), metrics.sessionsByClient());
         assertEquals(4L, metrics.realmSessionTotal());
@@ -126,11 +102,9 @@ class ActiveUsersExporterTest {
         List<Map<String, String>> response = List.of(
                 clientSessionStat("openmrs", "not-a-number"),
                 clientSessionStat("patient-portal", "-2"),
-                clientSessionStat("reporting", "0")
-        );
+                clientSessionStat("reporting", "0"));
 
-        ActiveUsersExporter.ClientSessionMetrics metrics =
-                ActiveUsersExporter.toClientSessionMetrics(response, config);
+        ActiveUsersExporter.ClientSessionMetrics metrics = ActiveUsersExporter.toClientSessionMetrics(response, config);
 
         assertEquals(0L, metrics.sessionsByClient().get("openmrs"));
         assertEquals(0L, metrics.sessionsByClient().get("patient-portal"));
@@ -142,17 +116,13 @@ class ActiveUsersExporterTest {
     void doesNotTreatMetadataFieldsAsClientIds() {
         ExporterConfig config = config(Set.of(), Set.of());
 
-        List<Map<String, String>> response = List.of(
-                Map.of(
-                        "id", "70a0e2fd-2bb2-4417-9fc6-22cdca1bb5be",
-                        "clientId", "odoo",
-                        "active", "6",
-                        "offline", "0"
-                )
-        );
+        List<Map<String, String>> response = List.of(Map.of(
+                "id", "70a0e2fd-2bb2-4417-9fc6-22cdca1bb5be",
+                "clientId", "odoo",
+                "active", "6",
+                "offline", "0"));
 
-        ActiveUsersExporter.ClientSessionMetrics metrics =
-                ActiveUsersExporter.toClientSessionMetrics(response, config);
+        ActiveUsersExporter.ClientSessionMetrics metrics = ActiveUsersExporter.toClientSessionMetrics(response, config);
 
         assertEquals(Map.of("odoo", 6L), metrics.sessionsByClient());
         assertEquals(6L, metrics.realmSessionTotal());
@@ -163,40 +133,23 @@ class ActiveUsersExporterTest {
 
     @Test
     void deduplicatesUsersAcrossSessionsFromDifferentClients() {
-        List<UserSessionRepresentation> odooSessions = List.of(
-                session("user-a"),
-                session("user-b")
-        );
-        List<UserSessionRepresentation> openElisSessions = List.of(
-                session("user-a"),
-                session("user-c")
-        );
+        List<UserSessionRepresentation> odooSessions = List.of(session("user-a"), session("user-b"));
+        List<UserSessionRepresentation> openElisSessions = List.of(session("user-a"), session("user-c"));
 
-        Set<String> distinctUserIds = ActiveUsersExporter.collectDistinctUserIds(
-                List.of(odooSessions, openElisSessions)
-        );
+        Set<String> distinctUserIds =
+                ActiveUsersExporter.collectDistinctUserIds(List.of(odooSessions, openElisSessions));
 
-        assertEquals(
-                Set.of("user-a", "user-b", "user-c"),
-                distinctUserIds
-        );
+        assertEquals(Set.of("user-a", "user-b", "user-c"), distinctUserIds);
         assertEquals(3, distinctUserIds.size());
     }
 
     @Test
     void ignoresNullBlankAndMissingUserIdsDuringDeduplication() {
-        List<UserSessionRepresentation> firstClientSessions = List.of(
-                session("user-a"),
-                session(" "),
-                session(null)
-        );
-        List<UserSessionRepresentation> secondClientSessions = List.of(
-                session("user-a")
-        );
+        List<UserSessionRepresentation> firstClientSessions = List.of(session("user-a"), session(" "), session(null));
+        List<UserSessionRepresentation> secondClientSessions = List.of(session("user-a"));
 
-        Set<String> distinctUserIds = ActiveUsersExporter.collectDistinctUserIds(
-                List.of(firstClientSessions, secondClientSessions)
-        );
+        Set<String> distinctUserIds =
+                ActiveUsersExporter.collectDistinctUserIds(List.of(firstClientSessions, secondClientSessions));
 
         assertEquals(Set.of("user-a"), distinctUserIds);
     }
@@ -205,9 +158,8 @@ class ActiveUsersExporterTest {
     void returnsNoDistinctUsersForEmptyOrNullClientSessionLists() {
         assertTrue(ActiveUsersExporter.collectDistinctUserIds(List.of()).isEmpty());
         assertTrue(ActiveUsersExporter.collectDistinctUserIds(null).isEmpty());
-        assertTrue(ActiveUsersExporter.collectDistinctUserIds(
-                List.of(List.of())
-        ).isEmpty());
+        assertTrue(
+                ActiveUsersExporter.collectDistinctUserIds(List.of(List.of())).isEmpty());
     }
 
     @Test
@@ -215,48 +167,28 @@ class ActiveUsersExporterTest {
         Set<String> previouslyReportedClientIds = new HashSet<>();
 
         ActiveUsersExporter.ClientSessionMetrics firstPoll =
-                new ActiveUsersExporter.ClientSessionMetrics(
-                        Map.of("odoo", 1L),
-                        1L
-                );
+                new ActiveUsersExporter.ClientSessionMetrics(Map.of("odoo", 1L), 1L);
 
         ActiveUsersExporter.ClientSessionUpdate firstUpdate =
-                ActiveUsersExporter.updateClientSessionValues(
-                        previouslyReportedClientIds,
-                        firstPoll
-                );
+                ActiveUsersExporter.updateClientSessionValues(previouslyReportedClientIds, firstPoll);
 
         assertEquals(Map.of("odoo", 1L), firstUpdate.clientSessionValues());
         assertEquals(1L, firstUpdate.realmSessionTotal());
         assertEquals(Set.of("odoo"), previouslyReportedClientIds);
 
         ActiveUsersExporter.ClientSessionMetrics secondPoll =
-                new ActiveUsersExporter.ClientSessionMetrics(
-                        Map.of(),
-                        0L
-                );
+                new ActiveUsersExporter.ClientSessionMetrics(Map.of(), 0L);
 
         ActiveUsersExporter.ClientSessionUpdate secondUpdate =
-                ActiveUsersExporter.updateClientSessionValues(
-                        previouslyReportedClientIds,
-                        secondPoll
-                );
+                ActiveUsersExporter.updateClientSessionValues(previouslyReportedClientIds, secondPoll);
 
         assertEquals(Map.of("odoo", 0L), secondUpdate.clientSessionValues());
         assertEquals(0L, secondUpdate.realmSessionTotal());
         assertTrue(previouslyReportedClientIds.isEmpty());
     }
 
-    private static Map<String, String> clientSessionStat(
-            String clientId,
-            String active
-    ) {
-        return Map.of(
-                "id", "internal-" + clientId,
-                "clientId", clientId,
-                "active", active,
-                "offline", "0"
-        );
+    private static Map<String, String> clientSessionStat(String clientId, String active) {
+        return Map.of("id", "internal-" + clientId, "clientId", clientId, "active", active, "offline", "0");
     }
 
     private static UserSessionRepresentation session(String userId) {
@@ -265,10 +197,7 @@ class ActiveUsersExporterTest {
         return session;
     }
 
-    private static ExporterConfig config(
-            Set<String> includedClients,
-            Set<String> excludedClients
-    ) {
+    private static ExporterConfig config(Set<String> includedClients, Set<String> excludedClients) {
         return new ExporterConfig(
                 KC_BASE,
                 KC_REALM,
@@ -279,7 +208,6 @@ class ActiveUsersExporterTest {
                 Set.of(),
                 60,
                 9108,
-                15
-        );
+                15);
     }
 }
