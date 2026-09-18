@@ -1,0 +1,28 @@
+services:
+  keycloak-active-users-exporter:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: keycloak-active-users-exporter
+    image: keycloak-active-users-exporter:local
+    restart: unless-stopped
+
+    environment:
+      KC_BASE: "http://keycloak:8080"
+      KC_REALM: "master"
+      KC_CLIENT_ID: "keycloak-active-users-exporter"
+      KC_CLIENT_SECRET: "${KC_ACTIVE_USERS_EXPORTER_CLIENT_SECRET:?set KC_ACTIVE_USERS_EXPORTER_CLIENT_SECRET}"
+
+      INCLUDED_CLIENTS: "openmrs,odoo,senaite"
+      EXCLUDED_USERNAMES: ""
+
+      POLL_SECONDS: "60"
+      HTTP_PORT: "9108"
+      TIMEOUT_SECONDS: "15"
+
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+    ports:
+      - "127.0.0.1:9108:9108"
