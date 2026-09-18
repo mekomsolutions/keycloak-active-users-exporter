@@ -8,12 +8,12 @@ The exporter is intended to run separately from Keycloak, typically as a Docker 
 
 All application/session metrics use the same global client filter: either `INCLUDED_CLIENTS` or `EXCLUDED_CLIENTS`. User exclusions in `EXCLUDED_USERNAMES` apply to user-based metrics.
 
-| Metric | Labels | Meaning |
-|---|---|---|
-| `keycloak_active_client_sessions` | `realm`, `client_id` | Current active Keycloak client sessions for each included client. A client metric is created after Keycloak first reports it. If that client is absent in a later successful poll, its value is set to `0`. |
-| `keycloak_active_realm_sessions` | `realm` | Sum of active client sessions across all included clients. This is a session count, not a unique-person count: one user with sessions in Odoo and OpenELIS contributes two sessions. |
-| `keycloak_active_realm_users` | `realm` | Number of distinct active users across included clients. A user with sessions in multiple included apps is counted once. Disabled users, service accounts, and usernames listed in `EXCLUDED_USERNAMES` are excluded. |
-| `keycloak_enabled_users` | `realm` | Number of enabled, non-service-account users in the realm, excluding usernames in `EXCLUDED_USERNAMES`. This metric is realm-wide; it cannot be filtered by client because user records do not belong to one client. |
+|              Metric               |        Labels        |                                                                                                        Meaning                                                                                                        |
+|-----------------------------------|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `keycloak_active_client_sessions` | `realm`, `client_id` | Current active Keycloak client sessions for each included client. A client metric is created after Keycloak first reports it. If that client is absent in a later successful poll, its value is set to `0`.           |
+| `keycloak_active_realm_sessions`  | `realm`              | Sum of active client sessions across all included clients. This is a session count, not a unique-person count: one user with sessions in Odoo and OpenELIS contributes two sessions.                                  |
+| `keycloak_active_realm_users`     | `realm`              | Number of distinct active users across included clients. A user with sessions in multiple included apps is counted once. Disabled users, service accounts, and usernames listed in `EXCLUDED_USERNAMES` are excluded. |
+| `keycloak_enabled_users`          | `realm`              | Number of enabled, non-service-account users in the realm, excluding usernames in `EXCLUDED_USERNAMES`. This metric is realm-wide; it cannot be filtered by client because user records do not belong to one client.  |
 
 ### Sessions versus distinct users
 
@@ -33,18 +33,18 @@ keycloak_active_realm_users{realm="ozone"} 6
 
 Configuration is supplied through environment variables.
 
-| <div style="width:290px">Key</div> | Required | Default | Description |
-|---|---:|---|---|
-| `KC_BASE` | Yes | — | Keycloak server base URL, for example `http://keycloak:8080` inside Docker Compose or `https://auth.example.org` from outside the Docker network. Trailing slashes are removed. |
-| `KC_REALM` | Yes | — | Realm to query, for example `ozone`. The exporter client and its service account should normally be created in this realm. |
-| `KC_CLIENT_ID` | Yes | — | Confidential Keycloak client ID used by the exporter, for example `active-users-exporter`. |
-| `KC_CLIENT_SECRET` | Yes | — | Secret for `KC_CLIENT_ID`. Never commit this value. |
-| `INCLUDED_CLIENTS` | No | Empty | Comma-separated allow-list of client IDs. When nonempty, only these exact client IDs are used for all session metrics and distinct active-user calculation. Do not combine with `EXCLUDED_CLIENTS`. |
-| `EXCLUDED_CLIENTS` | No | Built-in Keycloak internal-client exclusions when `INCLUDED_CLIENTS` is empty | Comma-separated deny-list of client IDs. Used only when `INCLUDED_CLIENTS` is empty. Do not combine with `INCLUDED_CLIENTS`. An explicitly empty value means no client exclusions. |
-| `EXCLUDED_USERNAMES` | No | Empty | Comma-separated usernames excluded from all user-based metrics. Username matching is case-insensitive. |
-| `POLL_SECONDS` | No | `60` | Delay, in seconds, between completed polling cycles. Must be greater than zero. |
-| `HTTP_PORT` | No | `9108` | Local HTTP port on which the exporter exposes `/metrics`. Must be between `1` and `65535`. |
-| `TIMEOUT_SECONDS` | No | `15` | Reserved configuration value for the Keycloak request timeout. Must be greater than zero. |
+|         Key          | Required |                                    Default                                    |                                                                                             Description                                                                                             |
+|----------------------|---------:|-------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `KC_BASE`            |      Yes | —                                                                             | Keycloak server base URL, for example `http://keycloak:8080` inside Docker Compose or `https://auth.example.org` from outside the Docker network. Trailing slashes are removed.                     |
+| `KC_REALM`           |      Yes | —                                                                             | Realm to query, for example `ozone`. The exporter client and its service account should normally be created in this realm.                                                                          |
+| `KC_CLIENT_ID`       |      Yes | —                                                                             | Confidential Keycloak client ID used by the exporter, for example `active-users-exporter`.                                                                                                          |
+| `KC_CLIENT_SECRET`   |      Yes | —                                                                             | Secret for `KC_CLIENT_ID`. Never commit this value.                                                                                                                                                 |
+| `INCLUDED_CLIENTS`   |       No | Empty                                                                         | Comma-separated allow-list of client IDs. When nonempty, only these exact client IDs are used for all session metrics and distinct active-user calculation. Do not combine with `EXCLUDED_CLIENTS`. |
+| `EXCLUDED_CLIENTS`   |       No | Built-in Keycloak internal-client exclusions when `INCLUDED_CLIENTS` is empty | Comma-separated deny-list of client IDs. Used only when `INCLUDED_CLIENTS` is empty. Do not combine with `INCLUDED_CLIENTS`. An explicitly empty value means no client exclusions.                  |
+| `EXCLUDED_USERNAMES` |       No | Empty                                                                         | Comma-separated usernames excluded from all user-based metrics. Username matching is case-insensitive.                                                                                              |
+| `POLL_SECONDS`       |       No | `60`                                                                          | Delay, in seconds, between completed polling cycles. Must be greater than zero.                                                                                                                     |
+| `HTTP_PORT`          |       No | `9108`                                                                        | Local HTTP port on which the exporter exposes `/metrics`. Must be between `1` and `65535`.                                                                                                          |
+| `TIMEOUT_SECONDS`    |       No | `15`                                                                          | Reserved configuration value for the Keycloak request timeout. Must be greater than zero.                                                                                                           |
 
 ### Client filter rules
 
@@ -90,7 +90,6 @@ query-users
 
 See the example [docker-compose.yml](./docker-compose.yml) provided by the project.
 
-
 ## Build and run
 
 Build the application and execute tests:
@@ -102,6 +101,7 @@ mvn clean package
 Assuming you have properly configured a service account on a running Keycloak instance:
 
 Export the service account secret:
+
 ```fish
 set -x KC_ACTIVE_USERS_EXPORTER_CLIENT_SECRET 'replace-with-the-real-secret'
 ```
@@ -109,6 +109,7 @@ set -x KC_ACTIVE_USERS_EXPORTER_CLIENT_SECRET 'replace-with-the-real-secret'
 Verify that `KC_BASE` `KC_REALM` and `KC_CLIENT_ID` are correctly set in the Docker Compose
 
 Build and start:
+
 ```
 docker compose up --build -d keycloak-active-users-exporter
 ```
